@@ -98,7 +98,8 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	defer profileResponse.Body.Close()
-	// and then you could start a Session
+	// TODO: Attach this information so that I can track my being logged in
+	// and verify it.
 	w.Header().Add(headerContentType, profileResponse.Header.Get(headerContentType))
 	io.Copy(w, profileResponse.Body)
 }
@@ -107,6 +108,8 @@ func main() {
 	addr := os.Getenv("ADDR")
 	clientID := os.Getenv("CLIENT_ID")
 	clientSecret := os.Getenv("CLIENT_SECRET")
+	tls_cert := os.Getenv("TLS_CERT")
+	tls_secret := os.Getenv("TLS_SECRET")
 
 	ctx := &GithubContext{
 		oauthConfig: &oauth2.Config{
@@ -124,6 +127,6 @@ func main() {
 	mux.HandleFunc(apiReply, ctx.OAuthReplyHandler)
 
 	log.Printf("blog api server not listening on https://%s...", addr)
-	log.Fatal(http.ListenAndServeTLS(addr, "./tls/fullchain.pem", "./tls/privkey.pem", mux))
+	log.Fatal(http.ListenAndServeTLS(addr, tls_cert, tls_secret, mux))
 
 }
