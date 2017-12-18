@@ -1,7 +1,11 @@
 package handlers
 
-import "github.com/KyleWS/blog-api/api-server/models"
+import (
+	"github.com/KyleWS/blog-api/api-server/models"
+	"github.com/KyleWS/blog-api/api-server/sessions"
+)
 
-type Ctx struct {
-	PostStore *models.MongoStore
+type ReqCtx struct {
+	PostStore    *models.MongoStore
+	SessionStore *sessions.MemStore
 }

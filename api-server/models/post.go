@@ -75,7 +75,7 @@ func (tp *TextPost) ApplyUpdates(updates *TextPostUpdates) error {
 	if len(updates.Title) > 0 {
 		tp.Title = updates.Title
 	} else {
-		fmt.Errorf("error cannot set title to empty")
+		return fmt.Errorf("error cannot set title to empty")
 	}
 	return nil
 }
