@@ -3,8 +3,13 @@ package sessions
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	cache "github.com/patrickmn/go-cache"
 	"golang.org/x/oauth2"
@@ -91,13 +96,29 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 		http.Error(w, fmt.Sprintf("error getting profile : %v", err), http.StatusInternalServerError)
 		return
 	}
+	profileBuffer, err := ioutil.ReadAll(profileResponse.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error reading github oauth response: %v", err), http.StatusInternalServerError)
+		return
+	}
 	defer profileResponse.Body.Close()
+	var ResponseInterface interface{}
+	json.Unmarshal(profileBuffer, &ResponseInterface)
+	respStruct := ResponseInterface.(map[string]interface{})
 	// If we have gotten this far, time to save that access token
-	ctx.SessionCache.Save(token.AccessToken, token)
-	// Give them the access token back so they can start submitting it
-	// in their request as an Authoritzation header
-	w.Header().Add(headerContentType, profileResponse.Header.Get(headerContentType))
-	w.Header().Add(headerAuthorization, token.AccessToken)
-	w.WriteHeader(http.StatusAccepted)
-	/////////////////////////////////////////////////////////
+	whitelist := os.Getenv("BLOGAPI_WHITELIST")
+	whitelistSplit := strings.Split(whitelist, ",")
+	for i := 0; i < len(whitelistSplit); i++ {
+		if whitelistSplit[i] == respStruct["login"] {
+			w.Header().Add(headerContentType, profileResponse.Header.Get(headerContentType))
+			ctx.SessionCache.Save(token.AccessToken, token)
+			w.Header().Add(headerAuthorization, token.AccessToken)
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+	}
+	log.Printf("error user %s, %s, %v is not allowed to authenticate. Administrators have been notified.",
+		respStruct["name"], respStruct["login"], respStruct["id"])
+	http.Error(w, fmt.Sprintf("error user %s, %s, %v is not allowed to authenticate. Administrators have been notified.",
+		respStruct["name"], respStruct["login"], respStruct["id"]), http.StatusUnauthorized)
 }
