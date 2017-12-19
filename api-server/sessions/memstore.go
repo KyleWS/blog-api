@@ -24,9 +24,9 @@ func (ms *MemStore) Save(accessToken string, token *oauth2.Token) error {
 }
 
 func (ms *MemStore) Get(accessToken string) (*oauth2.Token, error) {
-	token, err := ms.entries.Get(accessToken)
-	if err == false {
-		return nil, fmt.Errorf("error getting token: %v", err)
+	token, present := ms.entries.Get(accessToken)
+	if present == false {
+		return nil, fmt.Errorf("token not found in database")
 	}
 	return token.(*oauth2.Token), nil
 }

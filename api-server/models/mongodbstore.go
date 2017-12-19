@@ -46,7 +46,7 @@ func (ms *MongoStore) InsertTextPost(newPost *TextPost) error {
 
 // FetchAllShort returns slice of all posts excluding their
 // body field.
-func (ms *MongoStore) FetchAllShort() ([]*PostShort, error) {
+func (ms *MongoStore) FetchAllShort(drafts bool) ([]*PostShort, error) {
 	longPost := &TextPost{}
 	shortSlice := make([]*PostShort, 0)
 	col := ms.session.DB(ms.dbname).C(ms.colname)
@@ -63,7 +63,12 @@ func (ms *MongoStore) FetchAllShort() ([]*PostShort, error) {
 			Tags:      longPost.Tags,
 			Views:     longPost.Views,
 		}
-		shortSlice = append(shortSlice, postShort)
+		// if drafts == true, add everything
+		if drafts {
+			shortSlice = append(shortSlice, postShort)
+		} else if !postShort.DraftMode {
+			shortSlice = append(shortSlice, postShort)
+		}
 	}
 	if err := iterVal.Err(); err != nil {
 		return nil, err

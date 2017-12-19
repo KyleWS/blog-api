@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 
 	"gopkg.in/mgo.v2/bson"
@@ -18,6 +17,15 @@ type TextPost struct {
 	Body      string        `json:"body"`
 	Tags      []string      `json:"tags"`
 	Views     int           `json:"views"`
+}
+
+type UserTextPost struct {
+	Author    string    `json:"author"`
+	Title     string    `json:"title"`
+	Publish   time.Time `json:"publish"` // Can set to publish in future
+	DraftMode bool      `json:"draftmode"`
+	Body      string    `json:"body"`
+	Tags      []string  `json:"tags"`
 }
 
 // TextPostUpdates reflects the certain fields of a text post that are
@@ -57,11 +65,19 @@ func NewTextPost(author string, title string, body string) *TextPost {
 	}
 }
 
+func (utp *UserTextPost) GenPostMetaData() *TextPost {
+	newPost := NewTextPost(utp.Author, utp.Title, utp.Body)
+	newPost.Publish = utp.Publish
+	newPost.DraftMode = utp.DraftMode
+	if utp.Tags != nil {
+		newPost.Tags = utp.Tags
+	}
+	return newPost
+}
+
 func (tp *TextPost) ApplyUpdates(updates *TextPostUpdates) error {
 	if len(updates.Body) > 0 {
 		tp.Body = updates.Body
-	} else {
-		return fmt.Errorf("error cannot update to empty body")
 	}
 	tp.DraftMode = updates.DraftMode
 	if !updates.Publish.IsZero() {
@@ -69,13 +85,9 @@ func (tp *TextPost) ApplyUpdates(updates *TextPostUpdates) error {
 	}
 	if len(updates.Tags) > 0 {
 		tp.Tags = updates.Tags
-	} else {
-		return fmt.Errorf("error cannot set tags to empty list")
 	}
 	if len(updates.Title) > 0 {
 		tp.Title = updates.Title
-	} else {
-		return fmt.Errorf("error cannot set title to empty")
 	}
 	return nil
 }

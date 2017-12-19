@@ -3,11 +3,9 @@ package sessions
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/KyleWS/blog-api/api-server/sessions"
 	cache "github.com/patrickmn/go-cache"
 	"golang.org/x/oauth2"
 )
@@ -36,7 +34,7 @@ type GithubContext struct {
 	// sessionCache lets us save the newly authenticated user's
 	// access token and github token so we can verify them on the
 	// fly
-	SessionCache *sessions.MemStore
+	SessionCache *MemStore
 }
 
 // random value to use as state for oauth
@@ -99,11 +97,7 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 	// Give them the access token back so they can start submitting it
 	// in their request as an Authoritzation header
 	w.Header().Add(headerContentType, profileResponse.Header.Get(headerContentType))
-	responseStruct := struct {
-		accessToken string
-	}{
-		accessToken: token.AccessToken,
-	}
-	json.NewEncoder(w).Encode(responseStruct)
+	w.Header().Add(headerAuthorization, token.AccessToken)
+	w.WriteHeader(http.StatusAccepted)
 	/////////////////////////////////////////////////////////
 }
