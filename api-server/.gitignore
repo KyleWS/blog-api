@@ -2,3 +2,6 @@
 tls/*
 gencert.sh
 dev.sh
+log.out
+startdev.sh
+backups/*
