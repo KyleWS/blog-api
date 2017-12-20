@@ -36,6 +36,7 @@ func main() {
 
 	// Environment variables
 	addr := os.Getenv("ADDR")
+	gitRedir := os.Getenv("GITREDIR")
 	clientID := os.Getenv("CLIENT_ID")
 	clientSecret := os.Getenv("CLIENT_SECRET")
 	tls_cert := os.Getenv("TLS_CERT")
@@ -57,12 +58,16 @@ func main() {
 	sessionStore := sessions.NewMemStore(120*time.Minute, time.Minute)
 
 	// Used to authenticate with Github
+	// below is so I can run locally and in deployment
+	if len(addr) > 0 {
+		gitRedir = addr
+	}
 	githubCtx := &sessions.GithubContext{
 		OauthConfig: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Scopes:       []string{"read:user"},
-			RedirectURL:  "https://" + addr + apiReply,
+			RedirectURL:  "https://" + gitRedir + apiReply,
 			Endpoint:     github.Endpoint,
 		},
 		StateCache:   cache.New(5*time.Minute, 10*time.Second),

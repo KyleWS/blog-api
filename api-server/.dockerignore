@@ -7,3 +7,4 @@ startdev.sh
 backups/*
 build.sh
 deploy.sh
+.git/*
