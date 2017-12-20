@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/KyleWS/blog-api/api-server/logging"
 	"github.com/KyleWS/blog-api/api-server/models"
 	"github.com/KyleWS/blog-api/api-server/sessions"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -35,6 +37,11 @@ func (ctx *ReqCtx) PostHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		////// fetch post from db /////////
+		logging.RequestLogger(w, r).WithFields(logrus.Fields{
+			"object_id": bsonID.Hex(),
+			"path":      path,
+			"post":      post,
+		}).Debug("handling /post/ get")
 		json.NewEncoder(w).Encode(post)
 	case http.MethodPost:
 		// require authenticated user
@@ -53,6 +60,9 @@ func (ctx *ReqCtx) PostHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
+		logging.RequestLogger(w, r).WithFields(logrus.Fields{
+			"post": newTextPost,
+		}).Debug("handling /post/ post")
 		json.NewEncoder(w).Encode(newTextPost)
 	case http.MethodPatch:
 		// require authenticated user
@@ -91,6 +101,10 @@ func (ctx *ReqCtx) PostHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("error updating post: %v", err), http.StatusInternalServerError)
 			return
 		}
+		logrus.WithFields(logrus.Fields{
+			"updated_post": updatedPost,
+			"updates":      updates,
+		}).Debug("handling /post/ patch")
 		json.NewEncoder(w).Encode(updatedPost)
 	case http.MethodDelete:
 		// require authenticated user
@@ -113,7 +127,7 @@ func (ctx *ReqCtx) PostHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		bsonID := bson.ObjectIdHex(path)
-		_, err := ctx.PostStore.GetTextPostByID(bsonID)
+		post, err := ctx.PostStore.GetTextPostByID(bsonID)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("error cannot find post with given ID: %v", err), http.StatusBadRequest)
 			return
@@ -126,6 +140,9 @@ func (ctx *ReqCtx) PostHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("error handling delete: %v", err), http.StatusInternalServerError)
 			return
 		}
+		logrus.WithFields(logrus.Fields{
+			"post": post,
+		}).Warn("handling /post/ delete")
 	default:
 		http.Error(w, fmt.Sprintf("only accepts GET, POST, PATCH and DELETE"), http.StatusMethodNotAllowed)
 	}

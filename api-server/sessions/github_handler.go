@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/KyleWS/blog-api/api-server/logging"
 	cache "github.com/patrickmn/go-cache"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
@@ -53,15 +54,22 @@ func newStateValue() string {
 
 // OAuthSignInHandler handles requests for the oauth sign-on API
 func (ctx *GithubContext) OAuthSignInHandler(w http.ResponseWriter, r *http.Request) {
+	logging.RequestLogger(w, r).Info("handling signin request")
 	state := newStateValue()
 	ctx.StateCache.Add(state, nil, cache.DefaultExpiration)
 	redirURL := ctx.OauthConfig.AuthCodeURL(state)
+	logrus.WithFields(logrus.Fields{
+		"state":    state,
+		"redirURL": redirURL,
+	}).Debug("OAuthSignInHandler")
 	http.Redirect(w, r, redirURL, http.StatusSeeOther)
 }
 
 //OAuthReplyHandler handles requests made after authenticating
 //with the OAuth provider, and authorizing our application
 func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Request) {
+	logging.RequestLogger(w, r).Info("handling oauth reply")
+
 	// handle OAutho errors if they ovvured
 	qsParams := r.URL.Query()
 	if len(qsParams.Get("error")) > 0 {
@@ -69,6 +77,9 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 		if len(errorDescription) == 0 {
 			errorDescription = "error signing in: " + qsParams.Get("error")
 		}
+		logrus.WithFields(logrus.Fields{
+			"err": errorDescription,
+		}).Debug("OAuthReply Error")
 		http.Error(w, fmt.Sprintf("error signing in: %s", errorDescription), http.StatusInternalServerError)
 		return
 	}
@@ -76,6 +87,10 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 	// check the returned state to make sure it matches
 	stateReturned := qsParams.Get("state")
 	if _, found := ctx.StateCache.Get(stateReturned); !found {
+		logrus.WithFields(logrus.Fields{
+			"stateReturned": stateReturned,
+			"cache":         ctx.StateCache,
+		}).Debug("OAuth Reply State Mismatch")
 		http.Error(w, fmt.Sprintf("invalid state value returned from oauth provider"), http.StatusBadRequest)
 		return
 	}
@@ -84,6 +99,10 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 	ctx.StateCache.Delete(stateReturned)
 	token, err := ctx.OauthConfig.Exchange(oauth2.NoContext, qsParams.Get("code"))
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"token": token,
+			"err":   err,
+		}).Debug("OAuth Reply Exchange Failed")
 		http.Error(w, fmt.Sprintf("error getting access token: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -93,6 +112,11 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 	profileRequest.Header.Add(headerAccept, acceptGitHubV3JSON)
 	profileResponse, err := client.Do(profileRequest)
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"client":          client,
+			"profileResponse": profileResponse,
+			"err":             err,
+		}).Debug("OAuth Reply Profile Request Error")
 		http.Error(w, fmt.Sprintf("error getting profile : %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -117,8 +141,11 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	log.Printf("error user %s, %s, %v is not allowed to authenticate. Administrators have been notified.",
-		respStruct["name"], respStruct["login"], respStruct["id"])
+	logrus.WithFields(logrus.Fields{
+		"name":  respStruct["name"],
+		"login": respStruct["login"],
+		"id":    respStruct["login"],
+	}).Warn("error non-whitelisted user tried to authenticate")
 	http.Error(w, fmt.Sprintf("error user %s, %s, %v is not allowed to authenticate. Administrators have been notified.",
 		respStruct["name"], respStruct["login"], respStruct["id"]), http.StatusUnauthorized)
 }

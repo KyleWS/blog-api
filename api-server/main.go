@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"github.com/KyleWS/blog-api/api-server/models"
 	"github.com/KyleWS/blog-api/api-server/sessions"
 	cache "github.com/patrickmn/go-cache"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	mgo "gopkg.in/mgo.v2"
@@ -22,6 +22,18 @@ const (
 )
 
 func main() {
+	// Logging options
+	logLevel := os.Getenv("LOG_LEVEL")
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+	logrus.SetOutput(os.Stdout)
+	if logLevel == "DEBUG" {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else if logLevel == "INFO" {
+		logrus.SetLevel(logrus.InfoLevel)
+	} else {
+		logrus.SetLevel(logrus.WarnLevel)
+	}
+
 	// Environment variables
 	addr := os.Getenv("ADDR")
 	clientID := os.Getenv("CLIENT_ID")
@@ -34,7 +46,11 @@ func main() {
 
 	sess, err := mgo.Dial(dbaddr)
 	if err != nil {
-		fmt.Printf("error connecting to db : %v\n", err)
+		logrus.WithFields(logrus.Fields{
+			"dbaddr":  dbaddr,
+			"dbName":  dbName,
+			"colName": colName,
+		}).Fatal("error connecting to db")
 	}
 
 	postStore := models.NewMongoStore(sess, dbName, colName)
@@ -65,7 +81,7 @@ func main() {
 	mux.HandleFunc("/all", reqCtx.AllPostsHandler)
 	corsMux := handlers.NewCORS(mux)
 
-	log.Printf("blog api server now listening on https://%s...", addr)
+	logrus.WithField("addr", addr).Info("blog api server now listening")
 	log.Fatal(http.ListenAndServeTLS(addr, tls_cert, tls_secret, corsMux))
 
 }
