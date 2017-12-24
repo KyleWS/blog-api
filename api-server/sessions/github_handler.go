@@ -137,7 +137,12 @@ func (ctx *GithubContext) OAuthReplyHandler(w http.ResponseWriter, r *http.Reque
 			w.Header().Add(headerContentType, profileResponse.Header.Get(headerContentType))
 			ctx.SessionCache.Save(token.AccessToken, token)
 			w.Header().Add(headerAuthorization, token.AccessToken)
-			w.WriteHeader(http.StatusAccepted)
+			tokenAccept := struct {
+				AccessToken string
+			}{
+				AccessToken: token.AccessToken,
+			}
+			json.NewEncoder(w).Encode(tokenAccept)
 			return
 		}
 	}
